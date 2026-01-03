@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Authentication Models
+// ============================================
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  fullName          String    @map("full_name")
+  profilePhotoUrl   String?   @map("profile_photo_url")
+  preferredLanguage String    @default("en") @map("preferred_language")
+  preferredCurrency String    @default("USD") @map("preferred_currency")
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  isActive          Boolean   @default(true) @map("is_active")
+  lastLoginAt       DateTime? @map("last_login_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  trips              Trip[]
+  savedDestinations  UserSavedDestination[]
+  auditLogs          AuditLog[]
+  userRoles          UserRole[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String   @default("[]") // JSON array stored as string for SQLite
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============================================
+// City & Activity Catalog Models
+// ============================================
+
+model City {
+  id              String    @id @default(uuid())
+  name            String
+  country         String
+  countryCode     String    @map("country_code")
+  region          String?
+  latitude        Float
+  longitude       Float
+  timezone        String    @default("UTC")
+  costIndex       Float     @default(100) @map("cost_index")
+  popularityScore Int       @default(0) @map("popularity_score")
+  description     String?
+  imageUrl        String?   @map("image_url")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  activities        Activity[]
+  hotels            Hotel[]
+  restaurants       Restaurant[]
+  transportFrom     Transport[]          @relation("TransportFrom")
+  transportTo       Transport[]          @relation("TransportTo")
+  tripStops         TripStop[]
+  savedDestinations UserSavedDestination[]
+
+  @@unique([name, country])
+  @@map("cities")
+}
+
+model Activity {
+  id              String    @id @default(uuid())
+  cityId          String    @map("city_id")
+  name            String
+  category        String    // sightseeing, food, adventure, culture, shopping, nightlife, nature, sports
+  description     String?
+  estimatedCost   Float     @default(0) @map("estimated_cost")
+  currency        String    @default("INR")
+  durationMinutes Int?      @map("duration_minutes")
+  imageUrl        String?   @map("image_url")
+  rating          Float?
+  popularityScore Int       @default(0) @map("popularity_score")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  city           City           @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  stopActivities StopActivity[]
+
+  @@map("activities")
+}
+
+model Hotel {
+  id              String    @id @default(uuid())
+  cityId          String    @map("city_id")
+  name            String
+  category        String    // budget, mid, luxury
+  description     String?
+  pricePerNight   Float     @map("price_per_night")
+  currency        String    @default("INR")
+  rating          Float?
+  amenities       String?   // JSON array as string
+  address         String?
+  imageUrl        String?   @map("image_url")
+  contactPhone    String?   @map("contact_phone")
+  website         String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@map("hotels")
+}
+
+model Restaurant {
+  id            String    @id @default(uuid())
+  cityId        String    @map("city_id")
+  name          String
+  cuisineType   String    @map("cuisine_type") // local, indian, chinese, italian, etc.
+  priceRange    String    @map("price_range") // budget, mid, fine_dining
+  avgMealCost   Float     @map("avg_meal_cost")
+  currency      String    @default("INR")
+  rating        Float?
+  description   String?
+  address       String?
+  imageUrl      String?   @map("image_url")
+  isVegetarian  Boolean   @default(false) @map("is_vegetarian")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@map("restaurants")
+}
+
+model Transport {
+  id              String    @id @default(uuid())
+  fromCityId      String    @map("from_city_id")
+  toCityId        String    @map("to_city_id")
+  transportType   String    @map("transport_type") // flight, train, bus
+  operatorName    String    @map("operator_name")
+  departureTime   String    @map("departure_time") // HH:MM format
+  arrivalTime     String    @map("arrival_time")
+  durationMinutes Int       @map("duration_minutes")
+  price           Float
+  currency        String    @default("INR")
+  classType       String?   @map("class_type") // economy, business, sleeper, AC, etc.
+  frequency       String?   // daily, weekly, etc.
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  fromCity City @relation("TransportFrom", fields: [fromCityId], references: [id])
+  toCity   City @relation("TransportTo", fields: [toCityId], references: [id])
+
+  @@map("transports")
+}
+
+// ============================================
+// Trip Models
+// ============================================
+
+model Trip {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  name               String
+  description        String?
+  startDate          DateTime  @map("start_date")
+  endDate            DateTime  @map("end_date")
+  coverPhotoUrl      String?   @map("cover_photo_url")
+  status             String    @default("draft") // draft, planned, active, completed, cancelled
+  isPublic           Boolean   @default(false) @map("is_public")
+  totalEstimatedCost Float     @default(0) @map("total_estimated_cost")
+  currency           String    @default("USD")
+  travelStyle        String?   @map("travel_style") // budget, balanced, luxury
+  versionNumber      Int       @default(1) @map("version_number")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  // Relations
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stops    TripStop[]
+  budgets  TripBudget[]
+  media    TripMedia[]
+  shares   TripShare[]
+  versions TripVersion[]
+
+  @@map("trips")
+}
+
+model TripStop {
+  id                String    @id @default(uuid())
+  tripId            String    @map("trip_id")
+  cityId            String    @map("city_id")
+  stopOrder         Int       @map("stop_order")
+  arrivalDate       DateTime  @map("arrival_date")
+  departureDate     DateTime  @map("departure_date")
+  accommodationName String?   @map("accommodation_name")
+  accommodationCost Float?    @map("accommodation_cost")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  trip       Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city       City           @relation(fields: [cityId], references: [id])
+  activities StopActivity[]
+
+  @@unique([tripId, stopOrder])
+  @@map("trip_stops")
+}
+
+model StopActivity {
+  id            String    @id @default(uuid())
+  tripStopId    String    @map("trip_stop_id")
+  activityId    String    @map("activity_id")
+  scheduledDate DateTime  @map("scheduled_date")
+  scheduledTime String?   @map("scheduled_time")
+  actualCost    Float?    @map("actual_cost")
+  notes         String?
+  isCompleted   Boolean   @default(false) @map("is_completed")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  tripStop TripStop @relation(fields: [tripStopId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@map("stop_activities")
+}
+
+model TripBudget {
+  id              String    @id @default(uuid())
+  tripId          String    @map("trip_id")
+  category        String    // transport, accommodation, activities, meals, shopping, other
+  estimatedAmount Float     @default(0) @map("estimated_amount")
+  actualAmount    Float?    @map("actual_amount")
+  currency        String    @default("USD")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, category])
+  @@map("trip_budgets")
+}
+
+model TripMedia {
+  id           String    @id @default(uuid())
+  tripId       String    @map("trip_id")
+  mediaType    String    @map("media_type") // photo, video
+  mediaUrl     String    @map("media_url")
+  thumbnailUrl String?   @map("thumbnail_url")
+  caption      String?
+  displayOrder Int?      @map("display_order")
+  uploadedAt   DateTime  @default(now()) @map("uploaded_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@map("trip_media")
+}
+
+model TripShare {
+  id              String    @id @default(uuid())
+  tripId          String    @map("trip_id")
+  shareToken      String    @unique @map("share_token")
+  shareType       String    @default("public") @map("share_type") // public, private, friends
+  sharedWithEmail String?   @map("shared_with_email")
+  viewCount       Int       @default(0) @map("view_count")
+  lastViewedAt    DateTime? @map("last_viewed_at")
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@map("trip_shares")
+}
+
+model TripVersion {
+  id            String   @id @default(uuid())
+  tripId        String   @map("trip_id")
+  versionNumber Int      @map("version_number")
+  snapshotData  String   @map("snapshot_data") // JSON stored as string for SQLite
+  changeSummary String?  @map("change_summary")
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, versionNumber])
+  @@map("trip_versions")
+}
+
+// ============================================
+// User Features
+// ============================================
+
+model UserSavedDestination {
+  id      String   @id @default(uuid())
+  userId  String   @map("user_id")
+  cityId  String   @map("city_id")
+  notes   String?
+  savedAt DateTime @default(now()) @map("saved_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cityId])
+  @@map("user_saved_destinations")
+}
+
+// ============================================
+// System Models
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  changes    String?  // JSON stored as string for SQLite
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// Enhanced Data Models (From Seed Requirements)
+// ============================================
+
+model Weather {
+  id              String   @id @default(uuid())
+  cityId          String?  // Optional relation to City if needed, but seed uses city name string
+  city            String   // Storing as string to match seed for now, or could map to City model
+  date            String   // YYYY-MM-DD
+  current         String   // JSON: { temperature, humidity, windSpeed, condition, feelsLike, uvIndex }
+  forecast        String   // JSON: { high, low, precipitation, condition, chanceOfRain }
+  hourlyForecast  String   // JSON array
+  recommendation  String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("weather_data")
+}
+
+model Guide {
+  id                String   @id @default(uuid())
+  cityId            String?
+  name              String
+  specialization    String
+  city              String   // Storing string to match seed
+  languages         String   // JSON array
+  certification     String?
+  yearsOfExperience Int      @map("years_of_experience")
+  rating            Float?
+  reviews           Int      @default(0)
+  pricePerDay       String   // JSON: { amount, currency }
+  availability      String   // JSON: { from, to, daysPerWeek }
+  groupSize         String   // JSON: { min, max }
+  skills            String   // JSON array
+  tours             String   // JSON array
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("guides")
+}
+
+model Event {
+  id            String   @id @default(uuid())
+  name          String
+  city          String
+  country       String
+  startDate     String   // YYYY-MM-DD
+  endDate       String   // YYYY-MM-DD
+  description   String?
+  category      String
+  expectedCrowd String?  @map("expected_crowd")
+  entryFee      Float    @default(0) @map("entry_fee") // Simplified from seed object
+  highlights    String   // JSON array
+  bestLocations String   // JSON array
+  tips          String   // JSON array
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("events")
+}
+
+model CostOfLiving {
+  id                   String   @id @default(uuid())
+  city                 String
+  country              String
+  category             String
+  dailyCost            String   // JSON: { accommodation, food, etc }
+  weeklyTotalEstimate  Float    @map("weekly_total_estimate")
+  monthlyTotalEstimate Float    @map("monthly_total_estimate")
+  costBreakdown        String   // JSON: { meals: {}, accommodation: {} }
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("cost_of_living")
+}
+
+model Crowd {
+  id              String   @id @default(uuid())
+  location        String
+  date            String
+  hourlyData      String   // JSON array
+  seasonalFactor  String   // JSON
+  bestTimeToVisit String?  @map("best_time_to_visit")
+  avgWaitTime     Int?     @map("avg_wait_time")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("crowd_data")
+}
+
+model Currency {
+  id           String   @id @default(uuid())
+  date         String
+  baseCurrency String   @map("base_currency")
+  rates        String   // JSON: { INR: 83.25, ... }
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("currency_rates")
+}

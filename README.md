@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GlobeTrotter 🌍✈️
 
-## Getting Started
+A premium travel planning application built with Next.js 14, Prisma, and Tailwind CSS. Plan your trips, manage budgets, and discover new destinations with a beautiful, responsive interface.
 
-First, run the development server:
+## 🚀 Getting Started
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Prerequisites
+- Node.js 18+ installed
+- SQLite (default) or PostgreSQL database
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd globetrotter
+    ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
 
-## Learn More
+3.  **Environment Setup**
+    Ensure you have a `.env` file in the root directory.
+    ```env
+    DATABASE_URL="file:./dev.db"
+    NEXTAUTH_SECRET="your-secret-key"
+    NEXTAUTH_URL="http://localhost:3000"
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+4.  **Database Setup**
+    This command will reset the database and seed it with comprehensive travel data (15 cities, 4 users, historical trips).
+    ```bash
+    npm run db:push --force-reset
+    npm run db:seed
+    ```
+    *Note: If you encounter errors, run `npx prisma generate` first.*
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5.  **Run the Development Server**
+    ```bash
+    npm run dev
+    ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    Open [http://localhost:3000](http://localhost:3000) with your browser to start exploring.
 
-## Deploy on Vercel
+## 🔑 Login Credentials
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The application is pre-seeded with the following users:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Name | Email | Password | Role | Currency |
+|------|-------|----------|------|----------|
+| **John Traveler** | `john@example.com` | `password123` | User | INR (₹) |
+| **Alice Wonder** | `alice@example.com` | `password123` | User | USD ($) |
+| **Bob Builder** | `bob@example.com` | `password123` | User | EUR (€) |
+| **Charlie Chaplin** | `charlie@example.com` | `password123` | User | GBP (£) |
+
+## ✨ Features
+
+- **Personalized Dashboard**: View upcoming trips, historical stats, and travel metrics.
+- **Trip Planning Wizard**: Step-by-step creation of trips with destinations, dates, and budgets.
+- **Interactive Calendar**: Visualize your trip itinerary with a dynamic event calendar.
+- **Budget Tracking**: innovative budget management with real-time expense estimates.
+- **Global Admin Analytics**: Platform-wide insights into user activity and popular destinations.
+- **Comprehensive Data**: 15+ Cities, 120+ Activities, 45+ Hotels pre-loaded.
+
+## 🛠️ Tech Stack & Tools
+
+- **Framework**: Next.js 14 (App Router)
+- **Database**: SQLite (Development) / PostgreSQL (Production)
+- **ORM**: Prisma
+- **Styling**: Tailwind CSS, Lucide Icons
+- **Auth**: NextAuth.js
